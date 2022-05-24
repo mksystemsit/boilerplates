@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  auth:
+    container_name: auth
+    image: authelia/authelia:latest
+    ports:
+      - 9091:9091
+    volumes:
+      - /path/to/authelia/data:/config
+      - /path/to/logs/authelia.log:/var/log/authelia/authelia.log
+    networks:
+      - proxy
+      - db
+    restart: unless-stopped
+    labels:
+      traefik.enable: true
+      traefik.http.routers.authelia.entryPoints: https
+
+    environment:
+      - TZ=Australia/Brisbane
+
+networks:
+  proxy:
+    external: true
+  db:
+    external: true

@@ -1,0 +1,53 @@
+version: '3'
+services:
+  traefik:
+    container_name: traefik
+    image: traefik:2.6
+    ports:
+      - 80:80       # HTTP
+      - 443:443     # HTTPS
+      - 8888:8888   # TCP
+      #- 8080:8080  # Traefik dashboard
+    volumes:
+      # Pass through host timezone
+      - /etc/timezone:/etc/timezone:ro
+      # Pass through host localtime
+      - /etc/localtime:/etc/localtime:ro
+      # Specify a path to your Traefik data directory
+      - /path/to/traefik/data:/etc/traefik/
+      # Specify a path to a container logs directory
+      - /path/to/logs/traefik.log:/var/log/traefik/traefik.log
+    networks:
+      - proxy # rename this to your custom docker network
+      - socket
+    labels:
+      traefik.http.routers.api.rule: Host(`traefik.domain.tld`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))   # Define the subdomain for the traefik dashboard.
+      traefik.http.routers.api.entryPoints: https    # Set the Traefik entry point.
+      traefik.http.routers.api.middlewares: auth@file
+      traefik.http.routers.api.service: api@internal    # Enable Traefik API.
+      traefik.enable: true   # Enable Traefik reverse proxy for the Traefik dashboard.
+    environment:
+      DOCKER_HOST: dockersocket
+      CF_DNS_API_TOKEN: cloudflare_api_token_goes_here
+    restart: unless-stopped
+    depends_on:
+      - dockersocket
+
+  dockersocket:
+    container_name: dockersocket
+    image: tecnativa/docker-socket-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    privileged: true
+    restart: unless-stopped
+
+networks:
+  proxy:
+    external: true
+  socket:
+    external: true

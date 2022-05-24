@@ -1,0 +1,111 @@
+version: '3'
+
+networks:
+  db:
+    external: true
+    driver: bridge
+  proxy:
+    external: true
+    driver: bridge
+  socket:
+    external: true
+    driver: bridge
+
+services:
+  traefik:
+    container_name: traefik
+    image: traefik:2.6
+    ports:
+      - 80:80       # HTTP
+      - 443:443     # HTTPS
+      - 8888:8888   # TCP
+      #- 8080:8080  # Traefik dashboard
+    volumes:
+      # Pass through host timezone
+      - /etc/timezone:/etc/timezone:ro
+      # Pass through host localtime
+      - /etc/localtime:/etc/localtime:ro
+      # Specify a path to your Traefik data directory
+      - /opt/c2/data/traefik:/etc/traefik/
+      # Specify a path to a container logs directory
+      - /opt/c2/logs/traefik.log:/var/log/traefik/traefik.log
+    networks:
+      - proxy # rename this to your custom docker network
+      - socket
+    labels:
+      traefik.http.routers.api.rule: Host(`traefik.domain.tld`) && (PathPrefix(`/api`) || PathPrefix(`/dashboard`))   # Define the subdomain for the traefik dashboard.
+      traefik.http.routers.api.entryPoints: https    # Set the Traefik entry point.
+      traefik.http.routers.api.service: api@internal    # Enable Traefik API.
+      traefik.enable: true   # Enable Traefik reverse proxy for the Traefik dashboard.
+    environment:
+      DOCKER_HOST: dockersocket
+      CF_DNS_API_TOKEN: cloudflare_api_token_goes_here
+    restart: unless-stopped
+    depends_on:
+      - dockersocket
+
+  dockersocket:
+    container_name: dockersocket
+    image: tecnativa/docker-socket-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - socket
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    privileged: true
+    restart: unless-stopped
+
+  msf:
+    image: "metasploitframework/metasploit-framework"
+    container_name: "msf"
+    volumes:
+        - /opt/c2/data/msf/sleep.sh:/sleep.sh
+        - /opt/c2/data/msf/double_delivery.rc:/usr/src/metasploit-framework/double_delivery.rc
+    command: /sleep.sh
+    labels:
+      traefik.enable: true
+      # HTTP Payload Delivery - host/delivery_http to msf:8080
+      traefik.http.routers.msfDelivery.rule: Host(`msf.domain.tld`) && PathPrefix(`/delivery_http`)
+      traefik.http.routers.msfDelivery.service: msfDelivery@docker
+      traefik.http.routers.msfDelivery.entrypoints: https
+      traefik.http.services.msfDelivery.loadbalancer.server.port: 8080
+      # TCP Payload Delivery - host/delivery_tcp to msf:8081
+      traefik.http.routers.msfDeliveryTcp.rule: Host(`msf.domain.tld`) && PathPrefix(`/delivery_tcp`)
+      traefik.http.routers.msfDeliveryTcp.service: msfDeliveryTcp@docker
+      traefik.http.routers.msfDeliveryTcp.entrypoints: https
+      traefik.http.services.msfDeliveryTcp.loadbalancer.server.port: 8081
+      # HTTP Payload Handler host/handler to msf:4444
+      traefik.http.routers.msfHandler.rule: Host(`msf.domain.tld`) && PathPrefix(`/handler`)
+      traefik.http.routers.msfHandler.service: msfHandler@docker
+      traefik.http.routers.msfHandler.entrypoints: https
+      traefik.http.services.msfHandler.loadbalancer.server.port: 4444
+      # TCP Payload Handler host:8888 to msf:4445
+      traefik.tcp.routers.msfHandlerTcp.rule: HostSNI(`*`)
+      traefik.tcp.routers.msfHandlerTcp.service: msfHandlerTcp@docker
+      traefik.tcp.services.msfHandlerTcp.loadbalancer.server.port: 4445
+      traefik.tcp.routers.msfHandlerTcp.entrypoints: tcp
+
+  covenant:
+    image: "isaudits/covenant"
+    container_name: "covenant"
+    networks:
+      - proxy
+    labels:
+      traefik.enable: true
+      # Web interface - host:443 to covenant:7443
+      traefik.tcp.routers.covenantUi.rule: HostSNI(`*`)
+      traefik.tcp.routers.covenantUi.service: covenantUi@docker
+      traefik.tcp.services.covenantUi.loadbalancer.server.port: 7443
+      traefik.tcp.routers.covenantUi.entrypoints: https
+      # HTTP Delivery - host/cov_delivery to covenant:80
+      traefik.http.routers.covenantDelivery.rule: Host(`cov.domain.tld`) && PathPrefix(`/cov_delivery`)
+      traefik.http.routers.covenantDelivery.service: covenantDelivery@docker
+      traefik.http.routers.covenantDelivery.entrypoints: https
+      traefik.http.services.covenantDelivery.loadbalancer.server.port: 80
+      # HTTP Payload Handler - host/cov_handler to covenant:80
+      traefik.http.routers.covenantHandler.rule: Host(`cov.domain.tld`) && PathPrefix(`/cov_handler`)
+      traefik.http.routers.covenantHandler.service: covenantHandler@docker
+      traefik.http.routers.covenantHandler.entrypoints: https
+      traefik.http.services.covenantHandler.loadbalancer.server.port: 80

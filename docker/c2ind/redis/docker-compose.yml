@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  redis:
+    container_name: redis
+    image: bitnami/redis
+    expose:
+      - 6379
+    volumes:
+      - /path/to/redis/data:/bitnami/
+    networks:
+      - db
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: "redis_password_goes_here"
+
+networks:
+  db:
+    external: true

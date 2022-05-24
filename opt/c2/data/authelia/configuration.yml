@@ -1,0 +1,101 @@
+theme: dark
+jwt_secret: "jwt_secret_goes_here"
+default_redirection_url: https://domain.tld/
+
+server:
+  host: 0.0.0.0
+  port: 9091
+  path: ""
+  read_buffer_size: 4096
+  write_buffer_size: 4096
+  enable_pprof: false
+  enable_expvars: false
+  disable_healthcheck: false
+  tls:
+    key: ""
+    certificate: ""
+
+log:
+  level: info
+  format: json
+  file_path: "/var/log/authelia/authelia.log"
+  keep_stdout: true
+
+totp:
+  issuer: ccfnq.com.au
+  period: 30
+  skew: 1
+
+authentication_backend:
+  disable_reset_password: false
+  refresh_interval: 5m
+  file:
+    path: /config/users_database.yml
+    password:
+      algorithm: argon2id
+      iterations: 1
+      key_length: 16
+      salt_length: 16
+      memory: 1024
+      parallelism: 8
+
+access_control:
+  default_policy: deny
+  rules:
+    # Bypass rule
+    - domain:
+      - "auth.ccfnq.com.au"
+      policy: bypass
+    # Catch-all
+    - domain:
+      - "*.ccfnq.com.au"
+      subject:
+        - "group:admins"
+      policy: one_factor
+
+session:
+  name: authelia_session
+  domain: ccfnq.com.au
+  same_site: lax
+  secret: "authelia_session_secret_goes_here"
+  expiration: 1h
+  inactivity: 5m
+  remember_me_duration: 2M
+  redis:
+    host: redis
+    port: 6379
+    password: "redis_password_goes_here"
+    database_index: 0
+    maximum_active_connections: 10
+    minimum_idle_connections: 0
+
+regulation:
+  max_retries: 3
+  find_time: 10m
+  ban_time: 12h
+
+storage:
+  encryption_key: "authelia_storage_encryption_key_goes_here"
+  mysql:
+    host: mariadb
+    port: 3306
+    database: authelia
+    username: authelia
+    password: "authelia_dbuser_password_goes_here"
+
+notifier:
+  disable_startup_check: false
+  smtp:
+    username: email@domain.tld
+    password: "smtp_password_goes_here"
+    host: smtp.mailgun.org
+    port: 587
+    sender: email@domain.tld
+    identifier: localhost
+    subject: "[Authelia] {title}"
+    startup_check_address: test@authelia.com
+    disable_require_tls: false
+    disable_html_emails: false
+    tls:
+      skip_verify: false
+      minimum_version: TLS1.2

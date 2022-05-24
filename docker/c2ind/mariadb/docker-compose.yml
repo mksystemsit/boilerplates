@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  mariadb:
+    container_name: mariadb
+    image: mariadb:focal
+    expose:
+      - 3306
+    environment:
+      - MARIADB_ROOT_PASSWORD="mariadb_root_password_goes_here"
+    networks:
+      - dbmgmt
+      - db
+    volumes:
+      - /path/to/mariadb/data:/var/lib/mysql
+
+networks:
+  dbmgmt:
+    external: true
+  db:
+    external: true

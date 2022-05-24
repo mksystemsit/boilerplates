@@ -1,0 +1,8 @@
+users:
+  change_this_to_your_username:
+    displayname: "Display Name"
+    password: "argon2id_password_hash_goes_here"
+    email: email@domain.tld
+    groups:
+      - admins
+      - dev

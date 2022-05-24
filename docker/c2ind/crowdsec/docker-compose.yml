@@ -1,0 +1,34 @@
+version: '3.4'
+
+services:
+  crowdsec:
+    container_name: crowdsec
+    image: crowdsecurity/crowdsec
+    expose:
+      - 8080
+    environment:
+      PGID: "1000"
+      COLLECTIONS: "crowdsecurity/traefik crowdsecurity/http-cve Dominic-Wagner/vaultwarden LePresidente/authelia"
+    volumes:
+      - /path/to/crowdsec/data:/var/lib/crowdsec/data
+      - /path/to/crowdsec/config:/etc/crowdsec
+      - /path/to/logs/traefik.log:/var/log/crowdsec/traefik.log:ro
+      - /path/to/logs/authelia.log:/var/log/authelia/authelia.log:ro
+      - /var/log/auth.log:/var/log/auth.log:ro
+    restart: unless-stopped
+    
+  crowdsec-traefik-bouncer:
+    container_name: traefik-bouncer
+    image: fbonalair/traefik-crowdsec-bouncer
+    depends_on:
+      - crowdsec
+    restart: unless-stopped
+    environment:
+      GIN_MODE: release
+      CROWDSEC_AGENT_HOST: crowdsec:8080
+      CROWDSEC_BOUNCER_API_KEY: crowsec_bouncer_api_key_goes_here
+
+networks:
+  default:
+    external: true
+    name: proxy

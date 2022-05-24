@@ -1,0 +1,37 @@
+version: '3'
+
+services:
+  msf:
+    image: "metasploitframework/metasploit-framework"
+    container_name: "msf"
+    volumes:
+        - /path/to/msf/data/sleep.sh:/sleep.sh
+        - /path/to/msf/data/double_delivery.rc:/usr/src/metasploit-framework/double_delivery.rc
+    command: /sleep.sh
+    labels:
+      - "traefik.enable=true"
+      # HTTP Payload Delivery - host/delivery_http to msf:8080
+      - "traefik.http.routers.msfDelivery.rule=Host(`msf.domain.tld`) && PathPrefix(`/delivery_http`)"
+      - "traefik.http.routers.msfDelivery.service=msfDelivery@docker"
+      - "traefik.http.routers.msfDelivery.entrypoints=https"
+      - "traefik.http.services.msfDelivery.loadbalancer.server.port=8080"
+      # TCP Payload Delivery - host/delivery_tcp to msf:8081
+      - "traefik.http.routers.msfDeliveryTcp.rule=Host(`msf.domain.tld`) && PathPrefix(`/delivery_tcp`)"
+      - "traefik.http.routers.msfDeliveryTcp.service=msfDeliveryTcp@docker"
+      - "traefik.http.routers.msfDeliveryTcp.entrypoints=https"
+      - "traefik.http.services.msfDeliveryTcp.loadbalancer.server.port=8081"
+      # HTTP Payload Handler host/handler to msf:4444
+      - "traefik.http.routers.msfHandler.rule=Host(`msf.domain.tld`) && PathPrefix(`/handler`)"
+      - "traefik.http.routers.msfHandler.service=msfHandler@docker"
+      - "traefik.http.routers.msfHandler.entrypoints=https"
+      - "traefik.http.services.msfHandler.loadbalancer.server.port=4444"
+      # TCP Payload Handler host:8888 to msf:4445
+      - "traefik.tcp.routers.msfHandlerTcp.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.msfHandlerTcp.service=msfHandlerTcp@docker"
+      - "traefik.tcp.services.msfHandlerTcp.loadbalancer.server.port=4445"
+      - "traefik.tcp.routers.msfHandlerTcp.entrypoints=tcp"
+
+networks:
+  proxy:
+    external: true
+    driver: bridge
